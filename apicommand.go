@@ -29,3 +29,10 @@ func (h *Connection) Command(command string) (*Event, error) {
 		return nil, errTimeout
 	}
 }
+
+// ApiCommand sends a 'api command' to the server and returns a response Event.
+//
+// See https://freeswitch.org/confluence/display/FREESWITCH/mod_event_socket#mod_event_socket-3.CommandDocumentation for details.
+func (h *Connection) ApiCommand(command string) (*Event, error) {
+	return h.Command(fmt.Sprintf("api %s", command))
+}
