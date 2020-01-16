@@ -168,7 +168,7 @@ func (h *Connection) readOne() bool {
 		return false
 	}
 	resp := new(Event)
-	resp.header = make(EventHeader)
+	resp.Header = make(EventHeader)
 	if v := hdr.Get("Content-Length"); v != "" {
 		length, err := strconv.Atoi(v)
 		if err != nil {
@@ -180,7 +180,7 @@ func (h *Connection) readOne() bool {
 			h.err <- err
 			return false
 		}
-		resp.body = string(b)
+		resp.Body = string(b)
 	}
 	switch hdr.Get("Content-Type") {
 	case "command/reply":
@@ -196,15 +196,15 @@ func (h *Connection) readOne() bool {
 		}
 		h.cmd <- resp
 	case "api/response":
-		if string(resp.body[:2]) == "-E" {
-			h.err <- errors.New(string(resp.body)[5:])
+		if string(resp.Body[:2]) == "-E" {
+			h.err <- errors.New(string(resp.Body)[5:])
 			return true
 		}
 		copyHeaders(&hdr, resp, false)
 		h.api <- resp
 	case "text/event-plain":
-		reader := bufio.NewReader(bytes.NewReader([]byte(resp.body)))
-		resp.body = ""
+		reader := bufio.NewReader(bytes.NewReader([]byte(resp.Body)))
+		resp.Body = ""
 		textreader := textproto.NewReader(reader)
 		hdr, err = textreader.ReadMIMEHeader()
 		if err != nil {
@@ -222,26 +222,26 @@ func (h *Connection) readOne() bool {
 				h.err <- err
 				return false
 			}
-			resp.body = string(b)
+			resp.Body = string(b)
 		}
 		copyHeaders(&hdr, resp, true)
 		h.evt <- resp
 	case "text/event-json":
 		tmp := make(EventHeader)
-		err := json.Unmarshal([]byte(resp.body), &tmp)
+		err := json.Unmarshal([]byte(resp.Body), &tmp)
 		if err != nil {
 			h.err <- err
 			return false
 		}
 		// capitalize header keys for consistency.
 		for k, v := range tmp {
-			resp.header[capitalize(k)] = v
+			resp.Header[capitalize(k)] = v
 		}
-		if v, _ := resp.header["_body"]; v != nil {
-			resp.body = v.(string)
-			delete(resp.header, "_body")
+		if v, _ := resp.Header["_body"]; v != nil {
+			resp.Body = v.(string)
+			delete(resp.Header, "_body")
 		} else {
-			resp.body = ""
+			resp.Body = ""
 		}
 		h.evt <- resp
 	case "text/disconnect-notice":
@@ -292,12 +292,12 @@ func copyHeaders(src *textproto.MIMEHeader, dst *Event, decode bool) {
 	for k, v := range *src {
 		k = capitalize(k)
 		if decode {
-			dst.header[k], err = url.QueryUnescape(v[0])
+			dst.Header[k], err = url.QueryUnescape(v[0])
 			if err != nil {
-				dst.header[k] = v[0]
+				dst.Header[k] = v[0]
 			}
 		} else {
-			dst.header[k] = v[0]
+			dst.Header[k] = v[0]
 		}
 	}
 }
@@ -338,21 +338,21 @@ type EventHeader map[string]interface{}
 
 // Event represents a FreeSWITCH event.
 type Event struct {
-	header EventHeader // Event headers, key:val
-	body   string      // Raw body, available in some events
+	Header EventHeader // Event headers, key:val
+	Body   string      // Raw body, available in some events
 }
 
 func (r *Event) String() string {
-	if r.body == "" {
-		return fmt.Sprintf("%s", r.header)
+	if r.Body == "" {
+		return fmt.Sprintf("%s", r.Header)
 	} else {
-		return fmt.Sprintf("%s body=%s", r.header, r.body)
+		return fmt.Sprintf("%s body=%s", r.Header, r.Body)
 	}
 }
 
 // Get returns an Event value, or "" if the key doesn't exist.
 func (r *Event) Get(key string) string {
-	val, ok := r.header[key]
+	val, ok := r.Header[key]
 	if !ok || val == nil {
 		return ""
 	}
@@ -365,7 +365,7 @@ func (r *Event) Get(key string) string {
 // GetInt returns an Event value converted to int, or an error if conversion
 // is not possible.
 func (r *Event) GetInt(key string) (int, error) {
-	n, err := strconv.Atoi(r.header[key].(string))
+	n, err := strconv.Atoi(r.Header[key].(string))
 	if err != nil {
 		return 0, err
 	}
@@ -375,32 +375,32 @@ func (r *Event) GetInt(key string) (int, error) {
 // PrettyPrint prints Event headers and body to the standard output.
 func (r *Event) PrettyPrint() {
 	var keys []string
-	for k := range r.header {
+	for k := range r.Header {
 		keys = append(keys, k)
 	}
 	sort.Strings(keys)
 	for _, k := range keys {
-		fmt.Printf("%s: %#v\n", k, r.header[k])
+		fmt.Printf("%s: %#v\n", k, r.Header[k])
 	}
-	if r.body != "" {
-		fmt.Printf("BODY: %#v\n", r.body)
+	if r.Body != "" {
+		fmt.Printf("BODY: %#v\n", r.Body)
 	}
 }
 
 // Pretty returns Event headers and body with pretty format.
 func (r *Event) Pretty() string {
 	var keys []string
-	for k := range r.header {
+	for k := range r.Header {
 		keys = append(keys, k)
 	}
 	sort.Strings(keys)
 	var items []string
 	for _, k := range keys {
-		items = append(items, fmt.Sprintf("%s: %#v\n", k, r.header[k]))
+		items = append(items, fmt.Sprintf("%s: %#v\n", k, r.Header[k]))
 	}
-	if r.body != "" {
+	if r.Body != "" {
 		items = append(items, "\n\n")
-		items = append(items, fmt.Sprintf("BODY: %#v\n", r.body))
+		items = append(items, fmt.Sprintf("BODY: %#v\n", r.Body))
 	}
 	return strings.Join(items, "")
 }
